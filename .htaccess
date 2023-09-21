@@ -1,0 +1,62 @@
+# IfModule prevents the server error if the app is moved in an environment which doesn’t support mod_rewrite
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews
+    </IfModule>
+
+    RewriteEngine On
+
+    
+    # RULES ORIGINALLY IN public/.htaccess ---
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Handle Front Controller...
+#    RewriteCond %{REQUEST_FILENAME} !-d
+#    RewriteCond %{REQUEST_FILENAME} !-f
+#    RewriteRule ^ index.php [L]
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    # --- END
+
+    # PERSONAL RULES ---
+    # All the requests on port 80 are redirected on HTTPS
+    RewriteCond %{SERVER_PORT} ^80$
+    RewriteRule .* https://%{SERVER_NAME}%{REQUEST_URI} [R,L]
+
+    # When .env file is requested, server redirects to 404
+    RewriteRule ^\.env$ - [R=404,L,NC]
+
+    # If the REQUEST_URI is empty (means: http://example.com), it loads /public/index.php
+    # N.B.: REQUEST_URI is *never* actually empty, it contains a slash that must be set as match as below
+    # .* means: anything can go here at least 0 times (= accepts any sequence of characters, including an empty string)
+    RewriteCond %{REQUEST_URI} ^/$
+    RewriteRule ^(.*) /public/index.php [L]
+
+    # If the current request is asking for a REQUEST_FILENAME that:
+    # a) !== existent directory
+    # b) !== existent file
+    # => if URI !== css||js||images/whatever => server loads /public/index.php, which is responsible to load the app and the related controller
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule !^(css|js|images|media)/(.*)$ /public/index.php [L,NC]
+
+    # If the current request is asking for a REQUEST_FILENAME that:
+    # a) !== existent directory
+    # b) !== existent file
+    # => if URI == css||js||images[=$1]/whatever[=$2] => server loads the resource at public/$1/$2
+    # If R flag is added, the server not only loads the resource at public/$1/$2 but redirects to it
+    # e.g.: bamboo.jpg resides in example.com/public/media/bamboo.jpg
+    #       Client asks for example.com/media/bamboo.jpg
+    #       Without R flag: the URI remains example.com/media/bamboo.jpg and loads the image
+    #       With R flag: the server redirects the client to example.com/public/media/bamboo.jpg and loads the image
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^(css|js|images|media)/(.*)$ /public/$1/$2 [L,NC]
+    # --- END
+
+</IfModule>
